@@ -17,27 +17,34 @@ pub struct Studio {
 }
 
 impl Backend for Studio {
-    async fn new(_: Params) -> anyhow::Result<Self>
+    async fn new(params: Params) -> anyhow::Result<Self>
     where
         Self: Sized,
     {
-        let studio = RobloxStudio::locate()?;
-        let content_path = studio.content_path();
+        let (identifier, sync_path) = if env::var("ASPHALT_TEST").is_ok() {
+            let identifier = ".asphalt-test".to_string();
+            let sync_path = params.project_dir.join(&identifier);
+            (identifier, sync_path)
+        } else {
+            let studio = RobloxStudio::locate()?;
+            let content_path = studio.content_path();
 
-        let cwd = env::current_dir()?;
-        let cwd_name = cwd
-            .file_name()
-            .and_then(|s| s.to_str())
-            .context("Failed to get current directory name")?;
+            let cwd = env::current_dir()?;
+            let cwd_name = cwd
+                .file_name()
+                .and_then(|s| s.to_str())
+                .context("Failed to get current directory name")?;
 
-        let project_name = cwd_name
-            .to_lowercase()
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join("-");
+            let project_name = cwd_name
+                .to_lowercase()
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join("-");
 
-        let identifier = format!(".asphalt-{project_name}");
-        let sync_path = content_path.join(&identifier);
+            let identifier = format!(".asphalt-{project_name}");
+            let sync_path = content_path.join(&identifier);
+            (identifier, sync_path)
+        };
 
         info!("Assets will be synced to: {}", sync_path.display());
 
@@ -58,10 +65,7 @@ impl Backend for Studio {
     ) -> anyhow::Result<Option<AssetRef>> {
         if matches!(asset.ty, AssetType::Model(_) | AssetType::Animation) {
             return match lockfile_entry {
-                Some(entry) => Ok(Some(AssetRef::Studio(format!(
-                    "rbxassetid://{}",
-                    entry.asset_id
-                )))),
+                Some(entry) => Ok(Some(AssetRef::Cloud(entry.asset_id))),
                 None => {
                     warn!(
                         "Models and Animations cannot be synced to Studio without having been uploaded first"
@@ -82,7 +86,7 @@ impl Backend for Studio {
         fs::write(&target_path, &asset.data).await?;
 
         Ok(Some(AssetRef::Studio(format!(
-            "rbxasset://{}/{}",
+            "{}/{}",
             self.identifier, rel_target_path
         ))))
     }

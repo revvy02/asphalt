@@ -17,34 +17,27 @@ pub struct Studio {
 }
 
 impl Backend for Studio {
-    async fn new(params: Params) -> anyhow::Result<Self>
+    async fn new(_: Params) -> anyhow::Result<Self>
     where
         Self: Sized,
     {
-        let (identifier, sync_path) = if env::var("ASPHALT_TEST").is_ok() {
-            let identifier = ".asphalt-test".to_string();
-            let sync_path = params.project_dir.join(&identifier);
-            (identifier, sync_path)
-        } else {
-            let studio = RobloxStudio::locate()?;
-            let content_path = studio.content_path();
+        let studio = RobloxStudio::locate()?;
+        let content_path = studio.content_path();
 
-            let cwd = env::current_dir()?;
-            let cwd_name = cwd
-                .file_name()
-                .and_then(|s| s.to_str())
-                .context("Failed to get current directory name")?;
+        let cwd = env::current_dir()?;
+        let cwd_name = cwd
+            .file_name()
+            .and_then(|s| s.to_str())
+            .context("Failed to get current directory name")?;
 
-            let project_name = cwd_name
-                .to_lowercase()
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join("-");
+        let project_name = cwd_name
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join("-");
 
-            let identifier = format!(".asphalt-{project_name}");
-            let sync_path = content_path.join(&identifier);
-            (identifier, sync_path)
-        };
+        let identifier = format!(".asphalt-{project_name}");
+        let sync_path = content_path.join(&identifier);
 
         info!("Assets will be synced to: {}", sync_path.display());
 
